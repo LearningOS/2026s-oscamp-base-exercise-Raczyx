@@ -132,7 +132,10 @@ pub fn get_exit_code(command: &str) -> i32 {
         .args(["-c",command])
         .status()
         .unwrap();
-    status.code().unwrap()
+    match status.code() {
+        Some(code) => code,
+        None => -1
+    }
 
 }
 
