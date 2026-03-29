@@ -38,7 +38,7 @@
 //! - fd number reuse strategy (find smallest free slot)
 //! - `Arc` reference counting and resource release
 
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 /// File abstraction trait — all "files" in the kernel (regular files, pipes, sockets) implement this
 pub trait File: Send + Sync {
@@ -51,13 +51,14 @@ pub struct FdTable {
     // TODO: Design the internal structure
     // Hint: use Vec<Option<Arc<dyn File>>>
     //       the index is the fd number, None means the fd is closed or unallocated
+    list:HashMap<usize,Arc<dyn File>>
 }
 
 impl FdTable {
     /// Create an empty fd table
     pub fn new() -> Self {
         // TODO
-        todo!()
+        Self { list: HashMap::new() }
     }
 
     /// Allocate a new fd, return the fd number.
@@ -65,25 +66,40 @@ impl FdTable {
     /// Prefers reusing the smallest closed fd number; if no free slot, appends to the end.
     pub fn alloc(&mut self, file: Arc<dyn File>) -> usize {
         // TODO
-        todo!()
+        let mut fd = 0usize;
+        while let Some(_) = self.list.get(&fd) {
+            fd += 1;
+        }
+        self.list.insert(fd, file);
+        fd
     }
 
     /// Get the file object for an fd. Returns None if the fd doesn't exist or is closed.
     pub fn get(&self, fd: usize) -> Option<Arc<dyn File>> {
         // TODO
-        todo!()
+        let file = self.list.get(&fd);
+        match file {
+            Some(rfile) => {
+                let f = rfile.clone();
+                Some(f)
+            },
+            None => None
+        }
     }
 
     /// Close an fd. Returns true on success, false if the fd doesn't exist or is already closed.
     pub fn close(&mut self, fd: usize) -> bool {
         // TODO
-        todo!()
+        match self.list.remove(&fd) {
+            Some(_) => {true},
+            None => {false}
+        }
     }
 
     /// Return the number of currently allocated fds (excluding closed ones)
     pub fn count(&self) -> usize {
         // TODO
-        todo!()
+        self.list.iter().count()
     }
 }
 
