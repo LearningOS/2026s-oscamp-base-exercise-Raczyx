@@ -91,7 +91,14 @@ impl Tlb {
         // TODO: 遍历 self.entries，查找 valid && vpn 匹配 && asid 匹配的条目
         // 命中：self.stats.hits += 1，返回 Some(entry.ppn)
         // 未命中：self.stats.misses += 1，返回 None
-        todo!()
+        for i in &self.entries {
+            if i.asid == asid && i.vpn == vpn && i.valid{
+                self.stats.hits += 1;
+                return Some(i.ppn);
+            }
+        }
+        self.stats.misses += 1;
+        None
     }
 
     /// 将一条新映射插入 TLB。
@@ -108,7 +115,23 @@ impl Tlb {
         //       if entry.valid && entry.vpn == vpn && entry.asid == asid { 更新并返回 }
         //   }
         //   写入 fifo_ptr 位置，然后推进指针
-        todo!()
+        for i in 0..self.capacity {
+            let tlb = self.entries.get(i).unwrap();
+            if tlb.valid && tlb.asid == asid && tlb.vpn == vpn {
+                let tlb = self.entries.get_mut(i).unwrap();
+                tlb.flags = flags;
+                tlb.ppn = ppn;
+                return;
+            }
+        }
+
+        let tlb = self.entries.get_mut(self.fifo_ptr).unwrap();
+        tlb.asid = asid;
+        tlb.flags = flags;
+        tlb.ppn = ppn;
+        tlb.valid = true;
+        tlb.vpn = vpn;
+        self.fifo_ptr = (self.fifo_ptr + 1) % self.capacity;
     }
 
     /// 刷新整个 TLB（将所有条目标记为无效）。
@@ -116,7 +139,7 @@ impl Tlb {
     /// 这对应于 RISC-V 的 `sfence.vma`（不带参数）操作。
     pub fn flush_all(&mut self) {
         // TODO: 将所有条目的 valid 设为 false
-        todo!()
+        self.entries.iter_mut().for_each(|i| i.valid = false);
     }
 
     /// 刷新指定虚拟页的 TLB 条目。
@@ -124,7 +147,9 @@ impl Tlb {
     /// 对应 `sfence.vma vaddr`：只刷新匹配 `vpn` 的条目（任意 ASID）。
     pub fn flush_by_vpn(&mut self, vpn: u64) {
         // TODO: 将所有 vpn 匹配的条目标记为无效
-        todo!()
+        self.entries.iter_mut()
+            .filter(|i| i.vpn == vpn)
+            .for_each(|i| i.valid = false);
     }
 
     /// 刷新指定地址空间（ASID）的所有 TLB 条目。
@@ -132,13 +157,15 @@ impl Tlb {
     /// 对应 `sfence.vma zero, asid`：刷新该 ASID 的所有条目。
     pub fn flush_by_asid(&mut self, asid: u16) {
         // TODO: 将所有 asid 匹配的条目标记为无效
-        todo!()
+        self.entries.iter_mut()
+            .filter(|i| i.asid == asid)
+            .for_each(|i| i.valid = false);
     }
 
     /// 返回当前有效条目的数量。
     pub fn valid_count(&self) -> usize {
         // TODO: 统计 valid == true 的条目数
-        todo!()
+        self.entries.iter().filter(|i| i.valid == true).count()
     }
 }
 
@@ -194,7 +221,17 @@ impl Mmu {
     /// 5. 页表未命中 → 返回 None（缺页）
     pub fn translate(&mut self, vpn: u64) -> Option<u64> {
         // TODO: 实现 TLB + 页表的二级查找
-        todo!()
+        if let Some(ppn) = self.tlb.lookup(vpn, self.current_asid) {
+            return Some(ppn);
+        }
+        for (asid,page) in &self.page_table{
+            if *asid == self.current_asid && page.vpn == vpn {
+                self.tlb.insert(vpn, page.ppn, self.current_asid, page.flags);
+                return Some(page.ppn);
+            }
+        }
+        None
+
     }
 }
 
